@@ -1,9 +1,7 @@
 import { useState, Fragment } from "react";
-import { Home, ChevronRight, Search, ChevronDown, ChevronUp, Tablet, MapPin } from "lucide-react";
+import { Search, ChevronDown, ChevronUp, Tablet, MapPin, Map } from "lucide-react";
 import { StatusCard } from "../components/StatusCard";
 import { DeviceDetailPanel } from "../components/DeviceDetailPanel";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 
 interface Device {
   id: string;
@@ -139,7 +137,7 @@ export function MonitoringPage() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set());
   const [isAllSelected, setIsAllSelected] = useState(true);
-  const [viewMode, setViewMode] = useState<"device" | "station">("device");
+  const [viewMode, setViewMode] = useState<"device" | "station" | "map">("device");
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
 
   const handleDeviceClick = (device: Device) => {
@@ -269,6 +267,17 @@ export function MonitoringPage() {
                 title="정류장"
               >
                 <MapPin className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("map")}
+                className={`p-2 rounded-md transition-colors flex items-center justify-center ${
+                  viewMode === "map"
+                    ? "bg-[#f0f9ff] text-[#0384c7] border-[1.5px] border-[#0ea5e9]"
+                    : "text-[#64748b]"
+                }`}
+                title="지도"
+              >
+                <Map className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -485,6 +494,11 @@ export function MonitoringPage() {
             </table>
           </div>
         )}
+
+        {/* Map View */}
+        {viewMode === "map" && (
+          <MapView devices={filteredDevices} onDeviceClick={handleDeviceClick} />
+        )}
       </div>
 
       {/* Detail Panel */}
@@ -493,6 +507,142 @@ export function MonitoringPage() {
         isOpen={!!selectedDevice}
         onClose={handleClosePanel}
       />
+    </div>
+  );
+}
+
+// ── 지도 뷰 ────────────────────────────────────────────────────────────
+const REGION_DATA = [
+  { region: "강남구", x: 3, y: 2 },
+  { region: "서초구", x: 2, y: 3 },
+  { region: "성남시", x: 4, y: 3 },
+  { region: "연수구", x: 0, y: 2 },
+  { region: "남동구", x: 0, y: 3 },
+];
+
+function MapView({
+  devices,
+  onDeviceClick,
+}: {
+  devices: Device[];
+  onDeviceClick: (d: Device) => void;
+}) {
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
+
+  const byRegion = devices.reduce((acc, d) => {
+    if (!acc[d.region]) acc[d.region] = [];
+    acc[d.region].push(d);
+    return acc;
+  }, {} as Record<string, Device[]>);
+
+  const regionStatus = (devices: Device[]) => {
+    if (devices.some((d) => d.status === "오프라인")) return "오프라인";
+    if (devices.some((d) => d.status === "위험")) return "위험";
+    if (devices.some((d) => d.status === "지연")) return "지연";
+    return "정상";
+  };
+
+  const statusColor = (s: string) => {
+    switch (s) {
+      case "정상": return "bg-green-100 border-green-300 text-green-700";
+      case "지연": return "bg-yellow-100 border-yellow-300 text-yellow-700";
+      case "위험": return "bg-red-100 border-red-300 text-red-700";
+      default:    return "bg-gray-100 border-gray-300 text-gray-600";
+    }
+  };
+
+  const dotColor = (s: string) => {
+    switch (s) {
+      case "정상": return "bg-green-500";
+      case "지연": return "bg-yellow-500";
+      case "위험": return "bg-red-500";
+      default:    return "bg-gray-400";
+    }
+  };
+
+  return (
+    <div className="flex gap-4">
+      {/* Map */}
+      <div className="flex-1 bg-white rounded-[10px] border border-[#e2e7ef] p-6 min-h-[440px] relative overflow-hidden">
+        {/* 배경 격자 */}
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: "linear-gradient(#0ea5e9 1px, transparent 1px), linear-gradient(90deg, #0ea5e9 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+        <p className="text-[11px] text-[#64748b] font-semibold mb-4 relative">지역별 단말 현황</p>
+
+        {/* 지역 핀들 */}
+        <div className="relative grid grid-cols-6 gap-4 h-[360px] content-center">
+          {REGION_DATA.map(({ region, x, y }) => {
+            const regionDevices = byRegion[region] ?? [];
+            if (regionDevices.length === 0) return null;
+            const st = regionStatus(regionDevices);
+            const isActive = activeRegion === region;
+            return (
+              <button
+                key={region}
+                onClick={() => setActiveRegion(isActive ? null : region)}
+                style={{ gridColumn: x + 1, gridRow: y + 1 }}
+                className={`border-2 rounded-[10px] p-3 text-left transition-all hover:scale-105 ${statusColor(st)} ${
+                  isActive ? "ring-2 ring-[#0ea5e9] ring-offset-1" : ""
+                }`}
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor(st)}`} />
+                  <span className="text-[12px] font-semibold">{region}</span>
+                </div>
+                <span className="text-[11px]">{regionDevices.length}대</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 지역 상세 패널 */}
+      {activeRegion && byRegion[activeRegion] && (
+        <div className="w-[320px] bg-white rounded-[10px] border border-[#e2e7ef] overflow-hidden flex-shrink-0">
+          <div className="px-5 py-4 border-b border-[#e2e7ef] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-[#0ea5e9]" />
+              <span className="text-[14px] font-semibold text-[#0f172a]">{activeRegion}</span>
+            </div>
+            <button
+              onClick={() => setActiveRegion(null)}
+              className="text-[#94a3b8] hover:text-[#64748b] text-[18px] leading-none"
+            >
+              ×
+            </button>
+          </div>
+          <div className="divide-y divide-[#e2e7ef]">
+            {byRegion[activeRegion].map((device) => (
+              <button
+                key={device.id}
+                onClick={() => onDeviceClick(device)}
+                className="w-full px-5 py-3 text-left hover:bg-[#f8fafc] transition-colors"
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[13px] text-[#0ea5e9] font-medium">{device.id}</span>
+                  <span
+                    className={`text-[11px] px-2 py-0.5 rounded ${
+                      device.status === "정상"
+                        ? "bg-green-100 text-green-700"
+                        : device.status === "지연"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {device.status}
+                  </span>
+                </div>
+                <p className="text-[12px] text-[#64748b]">{device.name}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
