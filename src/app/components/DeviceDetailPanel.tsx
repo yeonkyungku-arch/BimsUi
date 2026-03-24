@@ -112,28 +112,28 @@ export function DeviceDetailPanel({ device, isOpen, onClose }: DeviceDetailPanel
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-600 mb-2">배터리 잔량</p>
                   <div className="flex items-center gap-2">
-                    <Battery className="w-5 h-5 text-green-600" />
+                    <Battery className="w-5 h-5 text-green-600" fill="currentColor" />
                     <span className="text-green-600">{device.battery} (정상)</span>
                   </div>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-600 mb-2">마지막 통신</p>
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-gray-500" />
+                    <Clock className="w-4 h-4 text-gray-500" fill="currentColor" />
                     <span className="text-sm">{device.lastUpdate}</span>
                   </div>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-600 mb-2">신호 강도</p>
                   <div className="flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-gray-500" />
+                    <Radio className="w-4 h-4 text-gray-500" fill="currentColor" />
                     <span className="text-sm">-65 dBm</span>
                   </div>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <p className="text-sm text-gray-600 mb-2">충전 상태</p>
                   <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-green-600" />
+                    <Zap className="w-5 h-5 text-green-600" fill="currentColor" />
                     <span className="text-green-600">충전 중</span>
                   </div>
                 </div>
@@ -210,7 +210,7 @@ export function DeviceDetailPanel({ device, isOpen, onClose }: DeviceDetailPanel
                 <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Tablet className="w-5 h-5 text-gray-600" />
+                      <Tablet className="w-5 h-5 text-gray-600" fill="currentColor" />
                     </div>
                     <div>
                       <p className="text-gray-900">디스플레이 새로고침 요청</p>

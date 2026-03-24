@@ -41,21 +41,21 @@ export function OTAPage() {
       case "완료":
         return (
           <Badge className="bg-green-100 text-green-800 gap-1">
-            <CheckCircle2 className="w-3 h-3" />
+            <CheckCircle2 className="w-3 h-3" fill="currentColor" style={{ color: 'inherit', stroke: 'white', strokeWidth: 2 }} />
             완료
           </Badge>
         );
       case "진행중":
         return (
           <Badge className="bg-blue-100 text-blue-800 gap-1">
-            <Clock className="w-3 h-3" />
+            <Clock className="w-3 h-3" fill="currentColor" style={{ color: 'inherit', stroke: 'white', strokeWidth: 2 }} />
             진행중
           </Badge>
         );
       case "실패":
         return (
           <Badge className="bg-red-100 text-red-800 gap-1">
-            <XCircle className="w-3 h-3" />
+            <XCircle className="w-3 h-3" fill="currentColor" style={{ color: 'inherit', stroke: 'white', strokeWidth: 2 }} />
             실패
           </Badge>
         );
@@ -89,7 +89,7 @@ export function OTAPage() {
           <div className="bg-white rounded-[10px] border border-[#e2e7ef] p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
+                <Package className="w-5 h-5 text-blue-600" fill="currentColor" style={{ stroke: 'white', strokeWidth: 1.5 }} />
               </div>
               <div>
                 <p className="text-[12px] text-[#64748b]">전체 배포</p>
@@ -101,7 +101,7 @@ export function OTAPage() {
           <div className="bg-white rounded-[10px] border border-[#e2e7ef] p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <CheckCircle2 className="w-5 h-5 text-green-600" fill="currentColor" style={{ stroke: 'white', strokeWidth: 2 }} />
               </div>
               <div>
                 <p className="text-[12px] text-[#64748b]">완료</p>
@@ -113,7 +113,7 @@ export function OTAPage() {
           <div className="bg-white rounded-[10px] border border-[#e2e7ef] p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-blue-600" />
+                <Clock className="w-5 h-5 text-blue-600" fill="currentColor" style={{ stroke: 'white', strokeWidth: 2 }} />
               </div>
               <div>
                 <p className="text-[12px] text-[#64748b]">진행중</p>
@@ -125,7 +125,7 @@ export function OTAPage() {
           <div className="bg-white rounded-[10px] border border-[#e2e7ef] p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                <XCircle className="w-5 h-5 text-red-600" />
+                <XCircle className="w-5 h-5 text-red-600" fill="currentColor" style={{ stroke: 'white', strokeWidth: 2 }} />
               </div>
               <div>
                 <p className="text-[12px] text-[#64748b]">실패</p>

@@ -1,4 +1,4 @@
-import { Home, ChevronRight, RefreshCw, Power, Monitor, Search } from "lucide-react";
+import { Home, ChevronRight, RefreshCw, Power, Tablet, Search } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
@@ -103,7 +103,7 @@ export function RemoteControlPage() {
 
             <button className="border-[1.5px] border-[#e2e7ef] rounded-lg h-auto py-6 flex flex-col items-center gap-2 hover:bg-[#f8fafc] hover:border-[#0ea5e9] transition-colors">
               <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
-                <Monitor className="w-6 h-6 text-green-600" />
+                <Tablet className="w-6 h-6 text-green-600" fill="currentColor" />
               </div>
               <span className="text-[13px] text-[#0f172a] font-medium">화면 새로고침</span>
               <span className="text-[11px] text-[#64748b]">선택한 단말</span>

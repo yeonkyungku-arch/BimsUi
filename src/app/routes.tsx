@@ -1,14 +1,15 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter, Navigate, Outlet } from "react-router";
 import { MonitoringPage } from "./pages/MonitoringPage";
 import { OTAPage } from "./pages/OTAPage";
 import { RemoteControlPage } from "./pages/RemoteControlPage";
 import { Sidebar } from "./components/Sidebar";
+import { LoginPage } from "./pages/LoginPage";
 
-function Layout({ children }: { children: React.ReactNode }) {
+function Layout() {
   return (
     <div className="flex h-screen">
       <Sidebar />
-      {children}
+      <Outlet />
     </div>
   );
 }
@@ -16,30 +17,27 @@ function Layout({ children }: { children: React.ReactNode }) {
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/monitoring" replace />,
+    element: <Navigate to="/login" replace />,
   },
   {
-    path: "/monitoring",
-    element: (
-      <Layout>
-        <MonitoringPage />
-      </Layout>
-    ),
+    path: "/login",
+    Component: LoginPage,
   },
   {
-    path: "/ota",
-    element: (
-      <Layout>
-        <OTAPage />
-      </Layout>
-    ),
-  },
-  {
-    path: "/remote-control",
-    element: (
-      <Layout>
-        <RemoteControlPage />
-      </Layout>
-    ),
+    Component: Layout,
+    children: [
+      {
+        path: "/monitoring",
+        Component: MonitoringPage,
+      },
+      {
+        path: "/ota",
+        Component: OTAPage,
+      },
+      {
+        path: "/remote-control",
+        Component: RemoteControlPage,
+      },
+    ],
   },
 ]);

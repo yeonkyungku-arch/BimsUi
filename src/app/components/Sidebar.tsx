@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Monitor, Package, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Tablet, Package, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
 
 interface MenuItem {
   id: string;
@@ -13,19 +13,19 @@ const menuItems: MenuItem[] = [
   {
     id: "monitoring",
     label: "BIS 단말 모니터링",
-    icon: <Monitor className="w-[18px] h-[18px] shrink-0" />,
+    icon: <Tablet className="w-[18px] h-[18px] shrink-0" fill="currentColor" />,
     path: "/monitoring",
   },
   {
     id: "ota",
     label: "OTA 배포",
-    icon: <Package className="w-[18px] h-[18px] shrink-0" />,
+    icon: <Package className="w-[18px] h-[18px] shrink-0" fill="currentColor" />,
     path: "/ota",
   },
   {
     id: "remote-control",
     label: "원격 제어",
-    icon: <Settings className="w-[18px] h-[18px] shrink-0" />,
+    icon: <Settings className="w-[18px] h-[18px] shrink-0" fill="currentColor" strokeWidth={0} />,
     path: "/remote-control",
   },
 ];

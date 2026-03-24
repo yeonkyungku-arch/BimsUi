@@ -64,7 +64,7 @@ export function StatusCard({ type, count, isActive, isChecked, onClick }: Status
       <div
         className={`w-10 h-10 rounded-full ${config.bgColor} flex items-center justify-center shrink-0`}
       >
-        <Icon className="w-5 h-5" style={{ stroke: config.iconColor }} />
+        <Icon className="w-5 h-5" style={{ color: config.iconColor, fill: config.iconColor, stroke: config.bgColor === 'bg-gray-100' ? '#f3f4f6' : 'white', strokeWidth: 1.5 }} />
       </div>
       <div>
         <p className="text-[12px] text-[#64748b]">{type}</p>
