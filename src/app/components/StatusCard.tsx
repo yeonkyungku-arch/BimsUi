@@ -1,7 +1,7 @@
 import { CircleCheck, AlertTriangle, AlertCircle, HardDrive, Activity, LayoutGrid, WifiOff } from "lucide-react";
 
 interface StatusCardProps {
-  type: "전체" | "정상" | "지연" | "위험" | "오프라인" | "재배터리" | "활성 알람";
+  type: "전체" | "정상" | "주의" | "위험" | "오프라인" | "재배터리" | "활성 알람";
   count: number;
   isActive?: boolean;
   isChecked?: boolean;
@@ -20,7 +20,7 @@ export function StatusCard({ type, count, isActive, isChecked, onClick }: Status
       iconColor: "#008236",
       bgColor: "bg-green-50",
     },
-    지연: {
+    주의: {
       icon: AlertTriangle,
       iconColor: "#a65f00",
       bgColor: "bg-amber-50",

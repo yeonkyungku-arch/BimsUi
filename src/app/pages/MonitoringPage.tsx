@@ -41,13 +41,13 @@ const stationNames = [
 ];
 const customerCodes = ["CUS001", "CUS002", "CUS003", "CUS004", "CUS005", "CUS006", "CUS007", "CUS008"];
 const regions = ["강남구", "서초구", "성남시", "연수구", "남동구", "부평구", "마포구", "영등포구", "노원구", "관악구", "안양시", "안산시", "수원시", "용인시", "고양시"];
-const statuses = ["정상", "정상", "정상", "정상", "정상", "정상", "지연", "지연", "오프라인", "위험"];
+const statuses = ["정상", "정상", "정상", "정상", "정상", "정상", "주의", "주의", "오프라인", "위험"];
 
 function generateMockDevices(count: number): Device[] {
   const devices: Device[] = [];
   for (let i = 1; i <= count; i++) {
     const statusVal = statuses[i % statuses.length];
-    const batteryBase = statusVal === "정상" ? 60 + (i % 40) : statusVal === "지연" ? 15 + (i % 30) : statusVal === "오프라인" ? (i % 10) : 5 + (i % 20);
+    const batteryBase = statusVal === "정상" ? 60 + (i % 40) : statusVal === "주의" ? 15 + (i % 30) : statusVal === "오프라인" ? (i % 10) : 5 + (i % 20);
     const hour = 8 + (i % 15);
     const minute = i % 60;
     const day = statusVal === "오프라인" ? "01" : "02";
@@ -105,7 +105,7 @@ export function MonitoringPage() {
 
   const handleStatusFilterClick = (status: string) => {
     if (status === "전체") {
-      setStatusFilters(new Set(["정상", "지연", "위험", "오프라인"]));
+      setStatusFilters(new Set(["정상", "주의", "위험", "오프라인"]));
       setIsAllSelected(true);
     } else {
       const newFilters = new Set(statusFilters);
@@ -115,7 +115,7 @@ export function MonitoringPage() {
         newFilters.add(status);
       }
       if (newFilters.size === 0) {
-        setStatusFilters(new Set(["정상", "지연", "위험", "오프라인"]));
+        setStatusFilters(new Set(["정상", "주의", "위험", "오프라인"]));
         setIsAllSelected(true);
       } else {
         setStatusFilters(newFilters);
@@ -140,7 +140,7 @@ export function MonitoringPage() {
     switch (status) {
       case "정상":
         return "bg-green-100 text-green-800 px-3 py-1 rounded";
-      case "지연":
+      case "주의":
         return "bg-yellow-100 text-yellow-800 px-3 py-1 rounded";
       case "위험":
         return "bg-red-100 text-red-800 px-3 py-1 rounded";
@@ -161,7 +161,7 @@ export function MonitoringPage() {
   const statusCounts = useMemo(() => ({
     전체: mockDevices.length,
     정상: mockDevices.filter((d) => d.status === "정상").length,
-    지연: mockDevices.filter((d) => d.status === "지연").length,
+    주의: mockDevices.filter((d) => d.status === "주의").length,
     위험: mockDevices.filter((d) => d.status === "위험").length,
     오프라인: mockDevices.filter((d) => d.status === "오프라인").length,
     재배터리: 7,
@@ -197,7 +197,7 @@ export function MonitoringPage() {
   const getStationStatus = (devices: Device[]) => {
     if (devices.some((d) => d.status === "위험")) return "위험";
     if (devices.some((d) => d.status === "오프라인")) return "오프라인";
-    if (devices.some((d) => d.status === "지연")) return "지연";
+    if (devices.some((d) => d.status === "주의")) return "주의";
     return "정상";
   };
 
@@ -271,10 +271,10 @@ export function MonitoringPage() {
               onClick={() => handleStatusFilterClick("위험")}
             />
             <StatusCard 
-              type="지연" 
-              count={statusCounts.지연} 
-              isChecked={statusFilters.has("지연")}
-              onClick={() => handleStatusFilterClick("지연")}
+              type="주의" 
+              count={statusCounts.주의} 
+              isChecked={statusFilters.has("주의")}
+              onClick={() => handleStatusFilterClick("주의")}
             />
             <StatusCard 
               type="정상" 

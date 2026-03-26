@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
-import { Tablet, Package, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Tablet, Package, Settings, PanelLeftClose, PanelLeft, LayoutDashboard } from "lucide-react";
 
 interface MenuItem {
   id: string;
@@ -10,6 +10,12 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    id: "dashboard",
+    label: "대시보드",
+    icon: <LayoutDashboard className="w-[18px] h-[18px] shrink-0" fill="currentColor" />,
+    path: "/dashboard",
+  },
   {
     id: "monitoring",
     label: "BIS 단말 모니터링",

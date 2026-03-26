@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router";
 import { MonitoringPage } from "./pages/MonitoringPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { OTAPage } from "./pages/OTAPage";
 import { RemoteControlPage } from "./pages/RemoteControlPage";
 import { Sidebar } from "./components/Sidebar";
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       {
+        path: "/dashboard",
+        Component: DashboardPage,
+      },
+      {
         path: "/monitoring",
         Component: MonitoringPage,
       },
@@ -39,5 +44,9 @@ export const router = createBrowserRouter([
         Component: RemoteControlPage,
       },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/login" replace />,
   },
 ]);
