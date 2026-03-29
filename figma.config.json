@@ -1,0 +1,11 @@
+{
+  "codeConnect": {
+    "react": {
+      "importPaths": {
+        "@/components/ui/*": "src/app/components/ui/*"
+      }
+    },
+    "include": ["src/**/*.figma.tsx"],
+    "documentUrlSubstring": "https://www.figma.com/design/udvm9EWTthsAAOTweBJ7ld"
+  }
+}
