@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Search, X, ChevronDown, ChevronRight, RefreshCw, RotateCcw, Monitor, Camera, Zap,
-  CheckCircle2, XCircle, Clock, AlertTriangle, Info,
+  CheckCircle2, XCircle, Clock, AlertTriangle, Info, ArrowRight,
   WifiOff, TrendingDown, LayoutGrid, AlertOctagon,
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
@@ -45,13 +45,10 @@ interface DeviceResult {
   stationName: string;
   stationCode: string;
   customerName: string;
-  execStatus: "수행 성공" | "수행 실패" | "요청 실패" | "요청 중";
-  deviceStateAtExec?: string;
-  failReason?: string;
+  execStatus: "수행 성공" | "수행 실패" | "응답 없음" | "수행 중" | "전송 대기" | "요청됨" | "승인 대기" | "취소됨";
+  failReason?: string;    // 실행 실패 원인 (스펙: 실행 실패 (원인))
+  resultValue?: string;   // 단말이 반환한 결과 값 (스펙: 결과 값)
   currentState?: string;
-  resultCode?: string;
-  deviceResponse?: string;
-  timelineNote?: string;
   execStartTime?: string;
   execEndTime?: string;
   statusResult?: DeviceStatusResult;
@@ -69,11 +66,12 @@ interface CommandLog {
   requester: string;
   requesterOrg: string;
   requestedAt: string;
-  overallStatus: "완료" | "진행중" | "부분 실패" | "실패";
-  successCount: number;
-  failCount: number;
-  requestFailCount: number;
+  overallStatus: "완료" | "진행중" | "부분 실패" | "실패" | "승인 대기";
+  succeededCount: number;
+  failedCount: number;
+  timeoutCount: number;
   pendingCount: number;
+  cancelledCount: number;
   deviceResults: DeviceResult[];
 }
 
@@ -84,7 +82,7 @@ const commandLogs: CommandLog[] = [
     targets: ["강남역 1번출구", "역삼역 2번출구"], targetCount: 2,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 12:34",
-    overallStatus: "완료", successCount: 2, failCount: 0, requestFailCount: 0, pendingCount: 0,
+    overallStatus: "완료", succeededCount: 2, failedCount: 0, timeoutCount: 0, pendingCount: 0, cancelledCount: 0,
     deviceResults: [
       { deviceId: "BISD001", stationName: "강남역 1번출구", stationCode: "ST-001", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 12:34:02", execEndTime: "2026.03.29 12:34:05", statusResult: { deviceStatus: "정상", signalStrength: 92, cpuUsage: 18, ramUsage: 43, temperature: 38, humidity: 52, uptime: "14일 3시간", appVersion: "v2.3.1", lastSyncTime: "2026.03.29 12:34:01" } },
       { deviceId: "BISD002", stationName: "역삼역 2번출구", stationCode: "ST-002", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 12:34:02", execEndTime: "2026.03.29 12:34:06", statusResult: { deviceStatus: "정상", signalStrength: 78, cpuUsage: 22, ramUsage: 51, temperature: 40, humidity: 55, uptime: "14일 3시간", appVersion: "v2.3.1", lastSyncTime: "2026.03.29 12:34:02" } },
@@ -95,9 +93,9 @@ const commandLogs: CommandLog[] = [
     targets: ["서초역 3번출구"], targetCount: 1,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 12:34",
-    overallStatus: "진행중", successCount: 0, failCount: 0, requestFailCount: 0, pendingCount: 1,
+    overallStatus: "진행중", succeededCount: 0, failedCount: 0, timeoutCount: 0, pendingCount: 1, cancelledCount: 0,
     deviceResults: [
-      { deviceId: "BISD003", stationName: "서초역 3번출구", stationCode: "ST-003", customerName: "서울버스", execStatus: "요청 중", execStartTime: "2026.03.29 12:34:10" },
+      { deviceId: "BISD003", stationName: "서초역 3번출구", stationCode: "ST-003", customerName: "서울버스", execStatus: "수행 중", execStartTime: "2026.03.29 12:34:10" },
     ],
   },
   {
@@ -105,31 +103,31 @@ const commandLogs: CommandLog[] = [
     targets: ["인천시청역 앞", "송도역 2번출구"], targetCount: 2,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 12:34",
-    overallStatus: "부분 실패", successCount: 1, failCount: 1, requestFailCount: 0, pendingCount: 0,
+    overallStatus: "부분 실패", succeededCount: 1, failedCount: 1, timeoutCount: 0, pendingCount: 0, cancelledCount: 0,
     deviceResults: [
       { deviceId: "BISD008", stationName: "인천시청역 앞", stationCode: "ST-008", customerName: "인천교통공사", execStatus: "수행 성공", currentState: "지연", execStartTime: "2026.03.29 12:15:03", execEndTime: "2026.03.29 12:15:11", statusResult: { deviceStatus: "주의", signalStrength: 45, cpuUsage: 67, ramUsage: 78, temperature: 52, humidity: 61, uptime: "2일 7시간", appVersion: "v2.2.9", lastSyncTime: "2026.03.29 12:15:10" } },
-      { deviceId: "BISD007", stationName: "송도역 2번출구", stationCode: "ST-007", customerName: "인천교통공사", execStatus: "수행 실패", deviceStateAtExec: "정상", currentState: "정상", resultCode: "0xE001", deviceResponse: "Process not responding: com.bims.app (pid 1234)", timelineNote: "앱 프로세스가 응답하지 않아 강제 종료 실패", failReason: "프로세스 응답 없음", execStartTime: "2026.03.29 12:15:03", execEndTime: "2026.03.29 12:15:35" },
+      { deviceId: "BISD007", stationName: "송도역 2번출구", stationCode: "ST-007", customerName: "인천교통공사", execStatus: "수행 실패", currentState: "정상", failReason: "프로세스 응답 없음", resultValue: "Process not responding: com.bims.app (pid 1234)", execStartTime: "2026.03.29 12:15:03", execEndTime: "2026.03.29 12:15:35" },
     ],
   },
   {
     id: "CMD-2025-004", command: "상태 재조회",
-    targets: ["강남역 1번출구"], targetCount: 1,
-    requester: "홍길동", requesterOrg: "서울시청",
-    requestedAt: "2026.03.29 12:34",
-    overallStatus: "진행중", successCount: 0, failCount: 0, requestFailCount: 0, pendingCount: 1,
-    deviceResults: [
-      { deviceId: "BISD004", stationName: "강남역 1번출구", stationCode: "ST-004", customerName: "서울버스", execStatus: "요청 중" },
-    ],
-  },
-  {
-    id: "CMD-2025-005", command: "상태 재조회",
     targets: ["강남역 1번출구", "역삼역 2번출구"], targetCount: 2,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 12:34",
-    overallStatus: "진행중", successCount: 0, failCount: 0, requestFailCount: 0, pendingCount: 2,
+    overallStatus: "부분 실패", succeededCount: 1, failedCount: 0, timeoutCount: 1, pendingCount: 0, cancelledCount: 0,
     deviceResults: [
-      { deviceId: "BISD005", stationName: "강남역 1번출구", stationCode: "ST-005", customerName: "서울버스", execStatus: "요청 중" },
-      { deviceId: "BISD006", stationName: "역삼역 2번출구", stationCode: "ST-006", customerName: "서울버스", execStatus: "요청 중" },
+      { deviceId: "BISD001", stationName: "강남역 1번출구", stationCode: "ST-001", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 12:36:01", execEndTime: "2026.03.29 12:36:04", statusResult: { deviceStatus: "정상", signalStrength: 88, cpuUsage: 20, ramUsage: 45, temperature: 37, humidity: 50, uptime: "14일 4시간", appVersion: "v2.3.1", lastSyncTime: "2026.03.29 12:36:01" } },
+      { deviceId: "BISD004", stationName: "역삼역 2번출구", stationCode: "ST-004", customerName: "서울버스", execStatus: "응답 없음", failReason: "단말 응답 대기 시간 초과 (30초)", execStartTime: "2026.03.29 12:36:01", execEndTime: "2026.03.29 12:36:31" },
+    ],
+  },
+  {
+    id: "CMD-2025-005", command: "단말 재부팅",
+    targets: ["강남역 1번출구"], targetCount: 1,
+    requester: "홍길동", requesterOrg: "서울시청",
+    requestedAt: "2026.03.29 12:38",
+    overallStatus: "승인 대기", succeededCount: 0, failedCount: 0, timeoutCount: 0, pendingCount: 1, cancelledCount: 0,
+    deviceResults: [
+      { deviceId: "BISD001", stationName: "강남역 1번출구", stationCode: "ST-001", customerName: "서울버스", execStatus: "승인 대기", execStartTime: "2026.03.29 12:38:00" },
     ],
   },
   {
@@ -137,7 +135,7 @@ const commandLogs: CommandLog[] = [
     targets: ["강남역 1번출구", "역삼역 2번출구"], targetCount: 2,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 13:10",
-    overallStatus: "완료", successCount: 2, failCount: 0, requestFailCount: 0, pendingCount: 0,
+    overallStatus: "완료", succeededCount: 2, failedCount: 0, timeoutCount: 0, pendingCount: 0, cancelledCount: 0,
     deviceResults: [
       { deviceId: "BISD001", stationName: "강남역 1번출구", stationCode: "ST-001", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 13:10:02", execEndTime: "2026.03.29 13:10:05", appRestartResult: { targetApp: "Agent", prevPid: 1234, newPid: 1587, elapsedMs: 2840, appStatus: "실행 중" } },
       { deviceId: "BISD002", stationName: "역삼역 2번출구", stationCode: "ST-002", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 13:10:02", execEndTime: "2026.03.29 13:10:06", appRestartResult: { targetApp: "Agent", prevPid: 2201, newPid: 2356, elapsedMs: 3120, appStatus: "실행 중" } },
@@ -148,7 +146,7 @@ const commandLogs: CommandLog[] = [
     targets: ["서초역 3번출구"], targetCount: 1,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 14:00",
-    overallStatus: "완료", successCount: 1, failCount: 0, requestFailCount: 0, pendingCount: 0,
+    overallStatus: "완료", succeededCount: 1, failedCount: 0, timeoutCount: 0, pendingCount: 0, cancelledCount: 0,
     deviceResults: [
       { deviceId: "BISD003", stationName: "서초역 3번출구", stationCode: "ST-003", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 14:00:05", execEndTime: "2026.03.29 14:00:38", rebootResult: { bootCompletedAt: "2026.03.29 14:00:38", newUptime: "0분" } },
     ],
@@ -158,11 +156,23 @@ const commandLogs: CommandLog[] = [
     targets: ["강남역 1번출구", "역삼역 2번출구", "서초역 3번출구"], targetCount: 3,
     requester: "홍길동", requesterOrg: "서울시청",
     requestedAt: "2026.03.29 15:20",
-    overallStatus: "완료", successCount: 3, failCount: 0, requestFailCount: 0, pendingCount: 0,
+    overallStatus: "완료", succeededCount: 3, failedCount: 0, timeoutCount: 0, pendingCount: 0, cancelledCount: 0,
     deviceResults: [
       { deviceId: "BISD001", stationName: "강남역 1번출구", stationCode: "ST-001", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 15:20:03", execEndTime: "2026.03.29 15:20:07", screenRefreshResult: { refreshedAreas: ["전체"], refreshedAt: "2026.03.29 15:20:07", rendererStatus: "정상" } },
       { deviceId: "BISD002", stationName: "역삼역 2번출구", stationCode: "ST-002", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 15:20:03", execEndTime: "2026.03.29 15:20:08", screenRefreshResult: { refreshedAreas: ["전체"], refreshedAt: "2026.03.29 15:20:08", rendererStatus: "정상" } },
       { deviceId: "BISD003", stationName: "서초역 3번출구", stationCode: "ST-003", customerName: "서울버스", execStatus: "수행 성공", currentState: "정상", execStartTime: "2026.03.29 15:20:03", execEndTime: "2026.03.29 15:20:09", screenRefreshResult: { refreshedAreas: ["전체"], refreshedAt: "2026.03.29 15:20:09", rendererStatus: "정상" } },
+    ],
+  },
+  {
+    id: "CMD-2025-009", command: "상태 재조회",
+    targets: ["강남역 1번출구", "역삼역 2번출구", "서초역 3번출구"], targetCount: 3,
+    requester: "홍길동", requesterOrg: "서울시청",
+    requestedAt: "2026.03.29 16:00",
+    overallStatus: "진행중", succeededCount: 0, failedCount: 0, timeoutCount: 0, pendingCount: 2, cancelledCount: 1,
+    deviceResults: [
+      { deviceId: "BISD001", stationName: "강남역 1번출구", stationCode: "ST-001", customerName: "서울버스", execStatus: "전송 대기", execStartTime: "2026.03.29 16:00:01" },
+      { deviceId: "BISD002", stationName: "역삼역 2번출구", stationCode: "ST-002", customerName: "서울버스", execStatus: "요청됨", execStartTime: "2026.03.29 16:00:01" },
+      { deviceId: "BISD003", stationName: "서초역 3번출구", stationCode: "ST-003", customerName: "서울버스", execStatus: "취소됨", execStartTime: "2026.03.29 16:00:01" },
     ],
   },
 ];
@@ -183,6 +193,7 @@ const getOverallStatusBadge = (status: CommandLog["overallStatus"]) => {
     case "진행중":    return <span className="inline-flex items-center gap-1 px-[10px] py-[2px] rounded-[4px] bg-[rgba(25,60,184,0.1)] text-[#193cb8] text-[12px] font-medium whitespace-nowrap"><Clock className="w-3 h-3 shrink-0" />진행 중</span>;
     case "부분 실패": return <span className="inline-flex items-center gap-1 px-[10px] py-[2px] rounded-[4px] bg-amber-100 text-amber-700 text-[12px] font-medium whitespace-nowrap"><AlertTriangle className="w-3 h-3 shrink-0" />부분 실패</span>;
     case "실패":      return <span className="inline-flex items-center gap-1 px-[10px] py-[2px] rounded-[4px] bg-red-100 text-red-700 text-[12px] font-medium whitespace-nowrap"><XCircle className="w-3 h-3 shrink-0" />실패</span>;
+    case "승인 대기": return <span className="inline-flex items-center gap-1 px-[10px] py-[2px] rounded-[4px] bg-amber-100 text-amber-700 text-[12px] font-medium whitespace-nowrap"><Clock className="w-3 h-3 shrink-0" />승인 대기</span>;
     default:          return <span>{status}</span>;
   }
 };
@@ -191,8 +202,12 @@ const getExecStatusBadge = (status: DeviceResult["execStatus"]) => {
   switch (status) {
     case "수행 성공": return <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-[11px]">수행 성공</Badge>;
     case "수행 실패": return <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-[11px]">수행 실패</Badge>;
-    case "요청 실패": return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100 text-[11px]">요청 실패</Badge>;
-    case "요청 중":   return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-[11px]">요청 중</Badge>;
+    case "응답 없음": return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100 text-[11px]">응답 없음</Badge>;
+    case "수행 중":   return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 text-[11px]">수행 중</Badge>;
+    case "전송 대기": return <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-[11px]">전송 대기</Badge>;
+    case "요청됨":    return <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-[11px]">요청됨</Badge>;
+    case "승인 대기": return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[11px]">승인 대기</Badge>;
+    case "취소됨":    return <Badge className="bg-slate-100 text-slate-500 hover:bg-slate-100 text-[11px] line-through">취소됨</Badge>;
     default:          return <Badge>{status}</Badge>;
   }
 };
@@ -200,16 +215,18 @@ const getExecStatusBadge = (status: DeviceResult["execStatus"]) => {
 // 요청·수행 결과 진행 바
 function ResultBar({ log }: { log: CommandLog }) {
   const t = log.targetCount;
-  const rFailPct = (log.requestFailCount / t) * 100;
-  const eFailPct = (log.failCount / t) * 100;
-  const SuccPct  = (log.successCount / t) * 100;
-  const pendPct  = (log.pendingCount / t) * 100;
+  const failedPct    = (log.failedCount / t) * 100;
+  const timeoutPct   = (log.timeoutCount / t) * 100;
+  const succeededPct = (log.succeededCount / t) * 100;
+  const pendPct      = (log.pendingCount / t) * 100;
+  const cancelPct    = (log.cancelledCount / t) * 100;
   return (
     <div className="flex h-[8px] w-full rounded-full overflow-hidden bg-[#e2e7ef]">
-      <div style={{ width: `${rFailPct}%` }}  className="bg-[#f30009]" />
-      <div style={{ width: `${eFailPct}%` }}  className="bg-[#f59e0b]" />
-      <div style={{ width: `${SuccPct}%` }}   className="bg-[#00dc52]" />
-      <div style={{ width: `${pendPct}%` }}   className="bg-[#cdcdcd]" />
+      <div style={{ width: `${failedPct}%` }}    className="bg-[#f30009]" />
+      <div style={{ width: `${timeoutPct}%` }}   className="bg-[#f59e0b]" />
+      <div style={{ width: `${succeededPct}%` }} className="bg-[#00dc52]" />
+      <div style={{ width: `${pendPct}%` }}      className="bg-[#93c5fd]" />
+      <div style={{ width: `${cancelPct}%` }}    className="bg-[#cdcdcd]" />
     </div>
   );
 }
@@ -255,38 +272,16 @@ function CommandModal({
   onClose: () => void;
   onChangeCommand: () => void;
 }) {
-  const [targetScope, setTargetScope]       = useState<"전체 단말" | "고객사별 배포" | "단말 선택">("전체 단말");
+  const [targetScope, setTargetScope]       = useState<"전체 단말" | "단말 선택">("전체 단말");
   const [schedule, setSchedule]             = useState<"즉시 실행" | "예약 실행">("즉시 실행");
-  const [customerSearch, setCustomerSearch] = useState("");
   const [deviceSearch, setDeviceSearch]     = useState("");
-  const [checkedCustomers, setCheckedCustomers] = useState<Set<string>>(new Set());
-  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set());
   const [checkedDevices, setCheckedDevices] = useState<Set<string>>(new Set());
-  const [deviceCustomerFilter, setDeviceCustomerFilter] = useState<string>("전체");
   const Icon = command.icon;
 
-  const filteredCustomers = MOCK_CUSTOMERS.filter((c) =>
-    c.name.includes(customerSearch)
-  );
-  const filteredDevices = MOCK_DEVICES.filter((d) =>
-    (deviceCustomerFilter === "전체" || d.customerName === deviceCustomerFilter) &&
-    (d.id.toLowerCase().includes(deviceSearch.toLowerCase()) || d.station.includes(deviceSearch))
+  const allDevices = MOCK_DEVICES.filter((d) =>
+    d.id.toLowerCase().includes(deviceSearch.toLowerCase()) || d.station.includes(deviceSearch)
   );
 
-  const toggleCustomer = (id: string) => {
-    setCheckedCustomers((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-  const toggleExpandCustomer = (id: string) => {
-    setExpandedCustomers((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
   const toggleDevice = (id: string) => {
     setCheckedDevices((prev) => {
       const next = new Set(prev);
@@ -294,10 +289,8 @@ function CommandModal({
       return next;
     });
   };
-  const selectAllCustomers = () =>
-    setCheckedCustomers(new Set(filteredCustomers.map((c) => c.id)));
   const selectAllDevices = () =>
-    setCheckedDevices(new Set(filteredDevices.map((d) => d.id)));
+    setCheckedDevices(new Set(allDevices.map((d) => d.id)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -340,91 +333,20 @@ function CommandModal({
             </p>
             {/* 라디오 */}
             <div className="flex items-center gap-8 mb-4">
-              {(["전체 단말", "고객사별 배포", "단말 선택"] as const).map((opt) => (
+              {(["전체 단말", "단말 선택"] as const).map((opt) => (
                 <label key={opt} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" name="targetScope" checked={targetScope === opt}
                     onChange={() => setTargetScope(opt)} className="w-4 h-4 accent-[#0ea5e9]" />
-                  <span className="text-[13px] font-medium text-[#0f172a]">{opt}</span>
+                  <span className="text-[13px] font-medium text-[#0f172a]">{opt === "단말 선택" ? "고객사 / 단말 선택" : opt}</span>
                 </label>
               ))}
             </div>
 
-            {/* 고객사별 배포 패널 */}
-            {targetScope === "고객사별 배포" && (
-              <div className="border border-[#e2e7ef] rounded-[10px] overflow-hidden">
-                {/* 검색 */}
-                <div className="px-[14px] py-[12px] border-b border-[#e2e7ef]">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8]" />
-                    <input value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="고객사명 검색..."
-                      className="w-full h-9 pl-9 pr-3 border border-[#e2e7ef] rounded-[8px] text-[13px] placeholder:text-[#94a3b8] focus:outline-none focus:border-[#0ea5e9]" />
-                  </div>
-                </div>
-                {/* 선택 카운트 */}
-                <div className="px-[14px] py-[10px] flex items-center justify-between border-b border-[#e2e7ef] bg-[#f8fafc]">
-                  <span className="text-[12px] text-[#64748b]">{checkedCustomers.size}개 고객사 선택됨</span>
-                  <button onClick={selectAllCustomers} className="text-[12px] text-[#0ea5e9] font-medium hover:underline">전체 선택</button>
-                </div>
-                {/* 고객사 리스트 */}
-                <div className="max-h-[280px] overflow-y-auto divide-y divide-[#e2e7ef]">
-                  {filteredCustomers.map((c) => (
-                    <div key={c.id}>
-                      <div className="h-[62px] px-[14px] flex items-center gap-3">
-                        <input type="checkbox" checked={checkedCustomers.has(c.id)}
-                          onChange={() => toggleCustomer(c.id)}
-                          className="w-4 h-4 accent-[#0ea5e9] shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium text-[#0f172a]">{c.name}</p>
-                          <p className="text-[11px] text-[#94a3b8]">{c.deviceCount}개 단말</p>
-                        </div>
-                        {c.deviceCount > 0 && (
-                          <button onClick={() => toggleExpandCustomer(c.id)}
-                            className="p-1 text-[#94a3b8] hover:text-[#0ea5e9]">
-                            <ChevronDown className={`w-4 h-4 transition-transform ${expandedCustomers.has(c.id) ? "rotate-180" : ""}`} />
-                          </button>
-                        )}
-                      </div>
-                      {/* 단말 하위 목록 */}
-                      {expandedCustomers.has(c.id) && (
-                        <div className="bg-[#f8fafc] divide-y divide-[#e2e7ef]">
-                          {c.devices.map((d) => (
-                            <div key={d.id} className="h-[48px] px-[14px] pl-10 flex items-center gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[12px] font-medium text-[#0f172a]">{d.id}</p>
-                                <div className="flex items-center gap-2">
-                                  <p className="text-[11px] text-[#94a3b8]">{d.station}</p>
-                                  <span>·</span>
-                                  {statusBadge(d.status)}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 단말 선택 패널 */}
+            {/* 고객사 > 단말 트리 선택 패널 */}
             {targetScope === "단말 선택" && (
               <div className="border border-[#e2e7ef] rounded-[10px] overflow-hidden">
                 {/* 검색 */}
-                <div className="px-[14px] py-[12px] border-b border-[#e2e7ef] space-y-2">
-                  {/* 고객사 필터 드롭다운 */}
-                  <select
-                    value={deviceCustomerFilter}
-                    onChange={(e) => setDeviceCustomerFilter(e.target.value)}
-                    className="w-full h-9 px-3 border border-[#e2e7ef] rounded-[8px] text-[13px] text-[#0f172a] bg-white focus:outline-none focus:border-[#0ea5e9] cursor-pointer"
-                  >
-                    <option value="전체">전체 고객사</option>
-                    {MOCK_CUSTOMERS.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name} ({c.deviceCount}개 단말)</option>
-                    ))}
-                  </select>
-                  {/* 단말/정류장 검색 */}
+                <div className="px-[14px] py-[12px] border-b border-[#e2e7ef]">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8]" />
                     <input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)}
@@ -434,65 +356,63 @@ function CommandModal({
                 </div>
                 {/* 선택 카운트 */}
                 <div className="px-[14px] py-[10px] flex items-center justify-between border-b border-[#e2e7ef] bg-[#f8fafc]">
-                  <span className="text-[12px] text-[#64748b]">전체 {filteredDevices.length}개 중 {checkedDevices.size}개 단말 선택됨</span>
+                  <span className="text-[12px] text-[#64748b]">전체 {allDevices.length}개 중 {checkedDevices.size}개 단말 선택됨</span>
                   <button onClick={selectAllDevices} className="text-[12px] text-[#0ea5e9] font-medium hover:underline">전체 선택</button>
                 </div>
-                {/* 단말 리스트 — 고객사 그룹핑 */}
+                {/* 고객사 > 단말 트리 */}
                 <div className="max-h-[280px] overflow-y-auto">
-                  {MOCK_CUSTOMERS
-                    .filter((c) => deviceCustomerFilter === "전체" || c.name === deviceCustomerFilter)
-                    .map((c) => {
-                      const devices = c.devices.filter((d) =>
-                        d.id.toLowerCase().includes(deviceSearch.toLowerCase()) ||
-                        d.station.includes(deviceSearch)
-                      );
-                      if (devices.length === 0) return null;
-                      const allChecked = devices.every((d) => checkedDevices.has(d.id));
-                      const someChecked = devices.some((d) => checkedDevices.has(d.id));
-                      const toggleGroup = () => {
-                        setCheckedDevices((prev) => {
-                          const next = new Set(prev);
-                          allChecked
-                            ? devices.forEach((d) => next.delete(d.id))
-                            : devices.forEach((d) => next.add(d.id));
-                          return next;
-                        });
-                      };
-                      return (
-                        <div key={c.id}>
-                          {/* 고객사 그룹 헤더 */}
-                          <div className="h-[36px] px-[14px] flex items-center gap-3 bg-[#f8fafc] border-b border-[#e2e7ef] sticky top-0">
-                            <input
-                              type="checkbox"
-                              checked={allChecked}
-                              ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
-                              onChange={toggleGroup}
-                              className="w-4 h-4 accent-[#0ea5e9] shrink-0"
-                            />
-                            <span className="text-[12px] font-semibold text-[#0f172a]">{c.name}</span>
-                            <span className="text-[11px] text-[#94a3b8] ml-1">{devices.length}개 단말</span>
-                          </div>
-                          {/* 단말 목록 */}
-                          <div className="divide-y divide-[#e2e7ef]">
-                            {devices.map((d) => (
-                              <div key={d.id} className="h-[48px] px-[14px] pl-10 flex items-center gap-3">
-                                <input type="checkbox" checked={checkedDevices.has(d.id)}
-                                  onChange={() => toggleDevice(d.id)}
-                                  className="w-4 h-4 accent-[#0ea5e9] shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[12px] font-medium text-[#0f172a]">{d.id}</p>
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="text-[11px] text-[#94a3b8] truncate">{d.station}</p>
-                                    <span className="text-[11px] text-[#94a3b8]">·</span>
-                                    {statusBadge(d.status)}
-                                  </div>
+                  {MOCK_CUSTOMERS.map((c) => {
+                    const devices = c.devices.filter((d) =>
+                      d.id.toLowerCase().includes(deviceSearch.toLowerCase()) ||
+                      d.station.includes(deviceSearch)
+                    );
+                    if (devices.length === 0) return null;
+                    const allChecked = devices.every((d) => checkedDevices.has(d.id));
+                    const someChecked = devices.some((d) => checkedDevices.has(d.id));
+                    const toggleGroup = () => {
+                      setCheckedDevices((prev) => {
+                        const next = new Set(prev);
+                        allChecked
+                          ? devices.forEach((d) => next.delete(d.id))
+                          : devices.forEach((d) => next.add(d.id));
+                        return next;
+                      });
+                    };
+                    return (
+                      <div key={c.id}>
+                        {/* 고객사 그룹 헤더 */}
+                        <div className="h-[40px] px-[14px] flex items-center gap-3 bg-[#f8fafc] border-b border-[#e2e7ef] sticky top-0">
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            ref={(el) => { if (el) el.indeterminate = someChecked && !allChecked; }}
+                            onChange={toggleGroup}
+                            className="w-4 h-4 accent-[#0ea5e9] shrink-0"
+                          />
+                          <span className="text-[12px] font-semibold text-[#0f172a]">{c.name}</span>
+                          <span className="text-[11px] text-[#94a3b8] ml-1">{devices.length}개 단말</span>
+                        </div>
+                        {/* 단말 목록 */}
+                        <div className="divide-y divide-[#e2e7ef]">
+                          {devices.map((d) => (
+                            <div key={d.id} className="h-[48px] px-[14px] pl-10 flex items-center gap-3">
+                              <input type="checkbox" checked={checkedDevices.has(d.id)}
+                                onChange={() => toggleDevice(d.id)}
+                                className="w-4 h-4 accent-[#0ea5e9] shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[12px] font-medium text-[#0f172a]">{d.id}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-[11px] text-[#94a3b8] truncate">{d.station}</p>
+                                  <span className="text-[11px] text-[#94a3b8]">·</span>
+                                  {statusBadge(d.status)}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -541,6 +461,245 @@ function CommandModal({
   );
 }
 
+// ── 단말별 결과 아코디언 ────────────────────────────────────────────────
+function DeviceResultAccordion({
+  results,
+  commandType,
+  onOpenDetail,
+}: {
+  results: DeviceResult[];
+  commandType: string;
+  onOpenDetail: (r: DeviceResult) => void;
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const toggle = (id: string) =>
+    setExpandedId((prev) => (prev === id ? null : id));
+
+  return (
+    <div>
+      <p className="text-[13px] font-semibold text-[#0f172a] mb-3">단말별 결과</p>
+      <div className="space-y-2">
+        {results.map((r) => {
+          const isExpanded = expandedId === r.deviceId;
+          const isFailed   = r.execStatus === "수행 실패";
+          const isTimeout  = r.execStatus === "응답 없음";
+          const isPending  = ["수행 중", "전송 대기", "요청됨"].includes(r.execStatus);
+          const isApproval = r.execStatus === "승인 대기";
+          const isCancelled = r.execStatus === "취소됨";
+
+          // 컴팩트 요약 뱃지 색상
+          const borderColor =
+            r.execStatus === "수행 성공" ? "border-[#bbf7d0]"
+            : isFailed                  ? "border-[#fca5a5]"
+            : isTimeout                 ? "border-[#fdba74]"
+            : isApproval                ? "border-[#fde68a]"
+            : isCancelled               ? "border-[#e2e7ef]"
+            : "border-[#bfdbfe]";  // 수행 중, 전송 대기, 요청됨
+
+          return (
+            <div key={r.deviceId} className={`border rounded-[8px] overflow-hidden transition-colors ${borderColor}`}>
+              {/* 카드 헤더 */}
+              <button
+                onClick={() => toggle(r.deviceId)}
+                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-[#f8fafc] transition-colors text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[12px] font-semibold text-[#0ea5e9]">{r.deviceId}</span>
+                    <span className="text-[11px] text-[#94a3b8]">·</span>
+                    <span className="text-[11px] text-[#64748b] truncate">{r.stationName}</span>
+                  </div>
+                  <span className="text-[11px] text-[#94a3b8]">{r.customerName}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {getExecStatusBadge(r.execStatus)}
+                  <ChevronDown className={`w-4 h-4 text-[#94a3b8] transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                </div>
+              </button>
+
+              {/* 펼쳐진 상세 */}
+              {isExpanded && (
+                <div className="border-t border-[#e2e7ef] px-4 py-3 bg-[#fafbfc] space-y-3">
+
+                  {/* 수행 시간 (성공/실패 공통) */}
+                  {(r.execStartTime || r.execEndTime) && (
+                    <div className="flex items-center gap-2 text-[11px] text-[#64748b]">
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
+                      <span>{r.execStartTime ?? "—"}</span>
+                      {r.execEndTime && (
+                        <>
+                          <ArrowRight className="w-3 h-3" />
+                          <span>{r.execEndTime}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 수행 성공 — 명령별 요약 */}
+                  {r.execStatus === "수행 성공" && (
+                    <>
+                      {/* 상태 재조회 */}
+                      {commandType === "상태 재조회" && r.statusResult && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {[
+                            { label: "단말 상태", value: r.statusResult.deviceStatus, highlight: true },
+                            r.statusResult.signalStrength !== undefined && { label: "신호 강도", value: `${r.statusResult.signalStrength}%` },
+                            r.statusResult.cpuUsage !== undefined      && { label: "CPU",      value: `${r.statusResult.cpuUsage}%` },
+                            r.statusResult.ramUsage !== undefined      && { label: "RAM",      value: `${r.statusResult.ramUsage}%` },
+                            r.statusResult.temperature !== undefined   && { label: "온도",     value: `${r.statusResult.temperature}°C` },
+                            r.statusResult.humidity !== undefined      && { label: "습도",     value: `${r.statusResult.humidity}%` },
+                            r.statusResult.appVersion                  && { label: "앱 버전",  value: r.statusResult.appVersion },
+                            r.statusResult.uptime                      && { label: "가동",     value: r.statusResult.uptime },
+                          ].filter(Boolean).map((item: any) => (
+                            <div key={item.label} className="flex justify-between">
+                              <span className="text-[11px] text-[#94a3b8]">{item.label}</span>
+                              <span className={`text-[11px] font-medium ${item.highlight
+                                ? item.value === "정상" ? "text-[#16a34a]"
+                                  : item.value === "주의" ? "text-[#d97706]" : "text-[#dc2626]"
+                                : "text-[#0f172a]"}`}>
+                                {item.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 스크린샷 */}
+                      {commandType === "스크린샷" && (
+                        <p className="text-[11px] text-[#16a34a]">화면 캡처 완료</p>
+                      )}
+
+                      {/* 앱 재시작 */}
+                      {commandType === "앱 재시작" && r.appRestartResult && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {[
+                            { label: "대상 앱",  value: r.appRestartResult.targetApp },
+                            { label: "앱 상태",  value: r.appRestartResult.appStatus },
+                            { label: "이전 PID", value: String(r.appRestartResult.prevPid) },
+                            { label: "새 PID",   value: String(r.appRestartResult.newPid) },
+                            { label: "소요 시간",value: `${(r.appRestartResult.elapsedMs / 1000).toFixed(1)}초` },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="flex justify-between">
+                              <span className="text-[11px] text-[#94a3b8]">{label}</span>
+                              <span className="text-[11px] font-medium text-[#0f172a]">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 단말 재부팅 */}
+                      {commandType === "단말 재부팅" && r.rebootResult && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {[
+                            { label: "완료 시각", value: r.rebootResult.bootCompletedAt },
+                            { label: "가동 시간", value: r.rebootResult.newUptime },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="flex justify-between">
+                              <span className="text-[11px] text-[#94a3b8]">{label}</span>
+                              <span className="text-[11px] font-medium text-[#0f172a]">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 화면 전체 갱신 */}
+                      {commandType === "화면 전체 갱신" && r.screenRefreshResult && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {[
+                            { label: "갱신 영역",    value: r.screenRefreshResult.refreshedAreas.join(", ") },
+                            { label: "렌더러 상태",  value: r.screenRefreshResult.rendererStatus },
+                            { label: "완료 시각",    value: r.screenRefreshResult.refreshedAt },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="flex justify-between">
+                              <span className="text-[11px] text-[#94a3b8]">{label}</span>
+                              <span className="text-[11px] font-medium text-[#0f172a]">{value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* 수행 실패 */}
+                  {isFailed && (
+                    <div className="space-y-1.5">
+                      {r.failReason && (
+                        <div className="flex justify-between">
+                          <span className="text-[11px] text-[#94a3b8]">실패 원인</span>
+                          <span className="text-[11px] font-medium text-[#dc2626]">{r.failReason}</span>
+                        </div>
+                      )}
+                      {r.resultValue && (
+                        <div className="mt-1 p-2 bg-[#fff1f2] rounded-[6px] text-[10px] text-[#b91c1c] font-mono break-all">
+                          {r.resultValue}
+                        </div>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        <button className="flex-1 h-7 rounded-[6px] border border-[#fca5a5] text-[11px] font-medium text-[#dc2626] hover:bg-red-50 transition-colors">재시도</button>
+                        <button className="flex-1 h-7 rounded-[6px] border border-[#e2e7ef] text-[11px] font-medium text-[#64748b] hover:bg-[#f8fafc] transition-colors">현장 작업 전환</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 응답 없음 (TIMEOUT) */}
+                  {isTimeout && (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-[#ea580c]">단말이 응답하지 않았습니다. (응답 대기 시간 초과)</p>
+                      {r.failReason && (
+                        <p className="text-[10px] text-[#94a3b8]">{r.failReason}</p>
+                      )}
+                      <div className="flex gap-2 pt-1">
+                        <button className="flex-1 h-7 rounded-[6px] border border-[#fdba74] text-[11px] font-medium text-[#ea580c] hover:bg-orange-50 transition-colors">재시도</button>
+                        <button className="flex-1 h-7 rounded-[6px] border border-[#e2e7ef] text-[11px] font-medium text-[#64748b] hover:bg-[#f8fafc] transition-colors">현장 작업 전환</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 승인 대기 */}
+                  {isApproval && (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-[#d97706]">위험 명령 실행을 위해 관리자 승인이 필요합니다.</p>
+                      <button className="w-full h-7 rounded-[6px] border border-[#fde68a] text-[11px] font-medium text-[#d97706] hover:bg-amber-50 transition-colors">승인 요청 취소</button>
+                    </div>
+                  )}
+
+                  {/* 수행 중 / 전송 대기 / 요청됨 */}
+                  {isPending && (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-[#3b82f6]">
+                        {r.execStatus === "수행 중" ? "단말에서 명령을 수행 중입니다."
+                         : r.execStatus === "전송 대기" ? "단말 전송 큐에 등록되었습니다."
+                         : "서버에 명령이 요청되었습니다."}
+                      </p>
+                      <button className="w-full h-7 rounded-[6px] border border-[#bfdbfe] text-[11px] font-medium text-[#3b82f6] hover:bg-blue-50 transition-colors">취소</button>
+                    </div>
+                  )}
+
+                  {/* 취소됨 */}
+                  {isCancelled && (
+                    <p className="text-[11px] text-[#94a3b8]">명령이 취소되었습니다.</p>
+                  )}
+
+                  {/* 전체 상세 보기 */}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={() => onOpenDetail(r)}
+                      className="flex items-center gap-1 text-[11px] font-medium text-[#0ea5e9] hover:text-[#0284c7]"
+                    >
+                      전체 상세 보기 <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── 단말 상세 패널 (오버레이) ──────────────────────────────────────────
 function SignalBar({ value }: { value: number }) {
   const color = value >= 70 ? "#16a34a" : value >= 40 ? "#f59e0b" : "#dc2626";
@@ -557,20 +716,27 @@ function SignalBar({ value }: { value: number }) {
 }
 
 function DeviceDetailOverlay({ device, commandType, onClose }: { device: DeviceResult; commandType: string; onClose: () => void }) {
-  const isFail    = device.execStatus === "수행 실패";
-  const isReqFail = device.execStatus === "요청 실패";
+  const isFailed   = device.execStatus === "수행 실패";
+  const isTimeout  = device.execStatus === "응답 없음";
+  const isPending  = ["수행 중", "전송 대기", "요청됨"].includes(device.execStatus);
+  const isApproval = device.execStatus === "승인 대기";
+  const isCancelled = device.execStatus === "취소됨";
+  const isActive   = isFailed || isTimeout; // 재시도 가능 상태
 
-  const infoRows = [
-    { label: "단말 ID",            value: device.deviceId },
-    { label: "정류장명 (코드)",     value: `${device.stationName} (${device.stationCode})` },
-    { label: "고객사명",            value: device.customerName },
-    { label: "결과 코드",           value: device.resultCode ?? "—",           hidden: !isFail },
-    { label: "장치 응답",           value: device.deviceResponse ?? "—",        hidden: !(isFail && device.deviceResponse) },
-    { label: "타임라인 최종 이벤트",value: device.timelineNote ?? "—",          hidden: !(isFail && device.timelineNote) },
-    { label: "실행 당시 단말 상태", value: device.deviceStateAtExec ?? "—",     hidden: !isFail },
-    { label: "현재 단말 상태",      value: device.currentState ?? "—",          hidden: isReqFail },
-    { label: "수행 시작",           value: device.execStartTime ?? "—",         hidden: isReqFail },
-    { label: "수행 종료",           value: device.execEndTime ?? "—",           hidden: isReqFail },
+  // 단말 기본 정보
+  const deviceInfoRows = [
+    { label: "단말 ID",         value: device.deviceId },
+    { label: "정류장명 (코드)", value: `${device.stationName} (${device.stationCode})` },
+    { label: "고객사명",        value: device.customerName },
+    { label: "현재 단말 상태",  value: device.currentState ?? "—", hidden: isPending || isApproval || isCancelled },
+    { label: "수행 시작",       value: device.execStartTime ?? "—" },
+    { label: "수행 종료",       value: device.execEndTime ?? "—",  hidden: isPending || isApproval },
+  ].filter((r) => !r.hidden);
+
+  // 수행 결과 관련 상세 — 스펙 기준: 실패 원인 + 결과 값
+  const execDetailRows = [
+    { label: "실패 원인", value: device.failReason ?? "—",  hidden: !isFailed && !isTimeout },
+    { label: "결과 값",   value: device.resultValue ?? "—", hidden: !(isFailed && device.resultValue) },
   ].filter((r) => !r.hidden);
 
   return (
@@ -592,105 +758,112 @@ function DeviceDetailOverlay({ device, commandType, onClose }: { device: DeviceR
             {getExecStatusBadge(device.execStatus)}
           </div>
           <div>
-            <p className="text-[12px] font-semibold text-[#0f172a] mb-2">단말 정보</p>
-            <div className="space-y-0">
-              {infoRows.map(({ label, value }) => (
-                <div key={label} className="flex justify-between py-2 border-b border-[#f1f5f9]">
-                  <span className="text-[12px] text-[#64748b] shrink-0">{label}</span>
-                  <span className="text-[12px] text-[#0f172a] text-right ml-4 break-all">{value}</span>
+            <p className="text-[12px] font-semibold text-[#64748b] mb-[5px]">단말 정보</p>
+            <div className="bg-[#f8fafc] border border-[#e2e7ef] rounded-[10px] p-px">
+              {deviceInfoRows.map(({ label, value }, idx, arr) => (
+                <div key={label} className={`h-[35px] px-[12px] flex items-center justify-between gap-2 ${idx < arr.length - 1 ? "border-b border-[#e2e7ef]" : ""}`}>
+                  <span className="text-[11px] text-[#94a3b8] shrink-0">{label}</span>
+                  <span className="text-[12px] text-[#0f172a] text-right break-all">{value}</span>
                 </div>
               ))}
             </div>
           </div>
           <div>
-            <p className="text-[12px] font-semibold text-[#0f172a] mb-2">수행 내역</p>
-            <div className="bg-[#f8fafc] rounded-[8px] px-4 py-3 text-[12px] text-[#64748b]">
-              {device.execStatus === "수행 성공" ? "명령이 성공적으로 수행되었습니다."
-                : device.execStatus === "요청 중" ? "단말에 명령 전달 대기 중입니다."
-                : device.execStatus === "요청 실패" ? `단말이 명령을 수신하지 못했습니다. ${device.failReason ? `(${device.failReason})` : ""}`
-                : `명령 전달 후 실행에 실패했습니다. ${device.failReason ? `사유: ${device.failReason}` : ""}`}
+            <p className="text-[12px] font-semibold text-[#64748b] mb-[5px]">수행 내역</p>
+            <div className="bg-[#f8fafc] rounded-[8px] py-[2px]">
+              <div className="p-[10px] text-[12px] text-[#64748b]">
+                {device.execStatus === "수행 성공"  ? "명령이 성공적으로 수행되었습니다."
+                : device.execStatus === "수행 중"   ? "단말에서 명령을 수행 중입니다."
+                : device.execStatus === "전송 대기" ? "단말 전송 큐에 등록되어 대기 중입니다."
+                : device.execStatus === "요청됨"    ? "서버에 명령이 등록되었습니다."
+                : device.execStatus === "승인 대기" ? "위험 명령 실행을 위해 관리자 승인이 필요합니다."
+                : device.execStatus === "취소됨"    ? "명령이 취소되었습니다."
+                : device.execStatus === "응답 없음" ? "단말이 응답하지 않았습니다. (응답 대기 시간 초과)"
+                : `명령 전달 후 실행에 실패했습니다.${device.failReason ? ` 사유: ${device.failReason}` : ""}`}
+              </div>
+              {execDetailRows.length > 0 && (
+                <div className="border-t border-[#e2e7ef] p-px mx-[2px] mb-[2px] rounded-b-[8px]">
+                  {execDetailRows.map(({ label, value }, idx, arr) => (
+                    <div key={label} className={`min-h-[35px] px-[12px] py-[8px] flex items-start justify-between gap-4 ${idx < arr.length - 1 ? "border-b border-[#e2e7ef]" : ""}`}>
+                      <span className="text-[11px] text-[#94a3b8] shrink-0 pt-px">{label}</span>
+                      <span className="text-[12px] text-[#0f172a] text-right break-all">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          {/* 액션 버튼 */}
+          {isActive && (
+            <div className="flex gap-2">
+              <button className="flex-1 h-9 rounded-[8px] border border-[#e2e7ef] text-[13px] font-medium text-[#0f172a] hover:bg-[#f8fafc] transition-colors">
+                재시도
+              </button>
+              <button className="flex-1 h-9 rounded-[8px] bg-[#0f172a] text-[13px] font-medium text-white hover:bg-[#1e293b] transition-colors">
+                현장 작업 전환 →
+              </button>
+            </div>
+          )}
+          {isPending && (
+            <div>
+              <button className="w-full h-9 rounded-[8px] border border-[#e2e7ef] text-[13px] font-medium text-[#64748b] hover:bg-[#f8fafc] transition-colors">
+                취소
+              </button>
+            </div>
+          )}
+          {isApproval && (
+            <div>
+              <button className="w-full h-9 rounded-[8px] border border-[#fde68a] text-[13px] font-medium text-[#d97706] hover:bg-amber-50 transition-colors">
+                승인 요청 취소
+              </button>
+            </div>
+          )}
 
           {/* ── 수행 결과 상세 (명령별) ── */}
           {device.execStatus === "수행 성공" && commandType === "상태 재조회" && device.statusResult && (
             <div>
               <p className="text-[12px] font-semibold text-[#0f172a] mb-3">수행 결과 상세</p>
-              {/* 상태 카드 */}
-              <div className={`rounded-[8px] px-4 py-3 mb-3 flex items-center justify-between ${
-                device.statusResult.deviceStatus === "정상" ? "bg-[#f0fdf4] border border-[#bbf7d0]"
-                : device.statusResult.deviceStatus === "주의" ? "bg-[#fffbeb] border border-[#fde68a]"
-                : "bg-[#fef2f2] border border-[#fecaca]"}`}>
-                <span className="text-[12px] font-medium text-[#374151]">현재 단말 상태</span>
-                <span className={`text-[13px] font-bold ${
-                  device.statusResult.deviceStatus === "정상" ? "text-[#16a34a]"
-                  : device.statusResult.deviceStatus === "주의" ? "text-[#d97706]"
-                  : "text-[#dc2626]"}`}>
-                  ● {device.statusResult.deviceStatus}
-                </span>
-              </div>
-              {/* 상세 지표 */}
-              <div className="space-y-0">
-                {device.statusResult.signalStrength !== undefined && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">신호 강도 (WiFi)</span>
-                    <SignalBar value={device.statusResult.signalStrength} />
+              <div className={`border rounded-[8px] overflow-hidden ${
+                device.statusResult.deviceStatus === "정상" ? "border-[#bbf7d0]"
+                : device.statusResult.deviceStatus === "주의" ? "border-[#fde68a]"
+                : "border-[#fca5a5]"
+              }`}>
+                <div className="px-4 py-3 bg-[#fafbfc]">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                    {[
+                      { label: "단말 상태",    value: device.statusResult.deviceStatus, statusColor: true },
+                      device.statusResult.signalStrength !== undefined && { label: "신호 강도 (WiFi)", value: `${device.statusResult.signalStrength}%`, signalVal: device.statusResult.signalStrength },
+                      device.statusResult.cpuUsage !== undefined       && { label: "CPU 사용량",       value: `${device.statusResult.cpuUsage}%` },
+                      device.statusResult.ramUsage !== undefined       && { label: "RAM 사용량",       value: `${device.statusResult.ramUsage}%` },
+                      device.statusResult.temperature !== undefined    && { label: "온도",             value: `${device.statusResult.temperature}°C` },
+                      device.statusResult.humidity !== undefined       && { label: "습도",             value: `${device.statusResult.humidity}%` },
+                      device.statusResult.batteryLevel !== undefined   && { label: "배터리 잔량",      value: `${device.statusResult.batteryLevel}%`, batteryVal: device.statusResult.batteryLevel },
+                      device.statusResult.socStage                    && { label: "SOC 단계",         value: device.statusResult.socStage, socVal: device.statusResult.socStage },
+                      device.statusResult.uptime                      && { label: "가동 시간",         value: device.statusResult.uptime },
+                      device.statusResult.appVersion                  && { label: "앱 버전",           value: device.statusResult.appVersion, mono: true },
+                      device.statusResult.lastSyncTime                && { label: "마지막 동기화",     value: device.statusResult.lastSyncTime },
+                    ].filter(Boolean).map((item: any) => (
+                      <div key={item.label} className="flex justify-between items-center gap-2">
+                        <span className="text-[11px] text-[#94a3b8] shrink-0">{item.label}</span>
+                        {item.signalVal !== undefined ? (
+                          <SignalBar value={item.signalVal} />
+                        ) : (
+                          <span className={`text-[11px] font-medium text-right ${
+                            item.statusColor
+                              ? item.value === "정상" ? "text-[#16a34a]" : item.value === "주의" ? "text-[#d97706]" : "text-[#dc2626]"
+                            : item.batteryVal !== undefined
+                              ? item.batteryVal >= 50 ? "text-[#16a34a]" : item.batteryVal >= 20 ? "text-[#d97706]" : "text-[#dc2626]"
+                            : item.socVal
+                              ? item.socVal === "NORMAL" ? "text-[#16a34a]" : item.socVal === "LOW_BATTERY" ? "text-[#d97706]" : "text-[#dc2626]"
+                            : item.mono ? "text-[#0f172a] font-mono"
+                            : "text-[#0f172a]"
+                          }`}>{item.value}</span>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-                {device.statusResult.cpuUsage !== undefined && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">CPU 사용량</span>
-                    <span className="text-[12px] text-[#0f172a]">{device.statusResult.cpuUsage}%</span>
-                  </div>
-                )}
-                {device.statusResult.ramUsage !== undefined && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">RAM 사용량</span>
-                    <span className="text-[12px] text-[#0f172a]">{device.statusResult.ramUsage}%</span>
-                  </div>
-                )}
-                {device.statusResult.temperature !== undefined && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">온도</span>
-                    <span className="text-[12px] text-[#0f172a]">{device.statusResult.temperature}°C</span>
-                  </div>
-                )}
-                {device.statusResult.humidity !== undefined && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">습도</span>
-                    <span className="text-[12px] text-[#0f172a]">{device.statusResult.humidity}%</span>
-                  </div>
-                )}
-                {device.statusResult.batteryLevel !== undefined && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">배터리 잔량</span>
-                    <span className={`text-[12px] font-medium ${device.statusResult.batteryLevel >= 50 ? "text-[#16a34a]" : device.statusResult.batteryLevel >= 20 ? "text-[#d97706]" : "text-[#dc2626]"}`}>{device.statusResult.batteryLevel}%</span>
-                  </div>
-                )}
-                {device.statusResult.socStage && (
-                  <div className="flex justify-between items-center py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">SOC 단계</span>
-                    <span className={`text-[12px] font-medium ${device.statusResult.socStage === "NORMAL" ? "text-[#16a34a]" : device.statusResult.socStage === "LOW_BATTERY" ? "text-[#d97706]" : "text-[#dc2626]"}`}>{device.statusResult.socStage}</span>
-                  </div>
-                )}
-                {device.statusResult.uptime && (
-                  <div className="flex justify-between py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">가동 시간</span>
-                    <span className="text-[12px] text-[#0f172a]">{device.statusResult.uptime}</span>
-                  </div>
-                )}
-                {device.statusResult.appVersion && (
-                  <div className="flex justify-between py-2 border-b border-[#f1f5f9]">
-                    <span className="text-[12px] text-[#64748b]">앱 버전</span>
-                    <span className="text-[12px] text-[#0f172a] font-mono">{device.statusResult.appVersion}</span>
-                  </div>
-                )}
-                {device.statusResult.lastSyncTime && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-[12px] text-[#64748b]">마지막 동기화</span>
-                    <span className="text-[12px] text-[#0f172a]">{device.statusResult.lastSyncTime}</span>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           )}
@@ -795,11 +968,11 @@ export function RemoteControlPage() {
   const [cmdFilter, setCmdFilter]               = useState("전체");
 
   // 요약 통계
-  const total   = commandLogs.reduce((s, l) => s + l.targetCount, 0);
-  const pending = commandLogs.reduce((s, l) => s + l.pendingCount, 0);
-  const reqFail = commandLogs.reduce((s, l) => s + l.requestFailCount, 0);
-  const success = commandLogs.reduce((s, l) => s + l.successCount, 0);
-  const fail    = commandLogs.reduce((s, l) => s + l.failCount, 0);
+  const total     = commandLogs.reduce((s, l) => s + l.targetCount, 0);
+  const pending   = commandLogs.reduce((s, l) => s + l.pendingCount, 0);
+  const timeout   = commandLogs.reduce((s, l) => s + l.timeoutCount, 0);
+  const success   = commandLogs.reduce((s, l) => s + l.succeededCount, 0);
+  const fail      = commandLogs.reduce((s, l) => s + l.failedCount, 0);
 
   const filteredLogs = commandLogs.filter((log) => {
     const matchSearch =
@@ -834,8 +1007,8 @@ export function RemoteControlPage() {
             <div className="flex flex-wrap gap-[10px]">
               {[
                 { label: "전체 요청 건", value: total,   icon: LayoutGrid,   valueColor: "text-[#155dfc]", active: true },
-                { label: "요청 중",     value: pending,  icon: WifiOff,      valueColor: "text-[#364153]" },
-                { label: "요청 실패",   value: reqFail,  icon: AlertOctagon, valueColor: "text-[#dc2626]" },
+                { label: "대기 중",     value: pending,  icon: WifiOff,      valueColor: "text-[#364153]" },
+                { label: "응답 없음",   value: timeout,  icon: AlertOctagon, valueColor: "text-[#dc2626]" },
                 { label: "수행 성공",   value: success,  icon: CheckCircle2, valueColor: "text-[#16a34a]" },
                 { label: "수행 실패",   value: fail,     icon: TrendingDown, valueColor: "text-[#f59e0b]" },
               ].map(({ label, value, icon: Icon, valueColor, active }) => (
@@ -1023,12 +1196,13 @@ export function RemoteControlPage() {
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-[#0f172a] mb-3">수행 결과 요약</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {[
-                    { label: "수행 성공", value: selectedLog.successCount,    color: "text-green-700",  bg: "bg-green-50"  },
-                    { label: "수행 실패", value: selectedLog.failCount,        color: "text-red-700",    bg: "bg-red-50"    },
-                    { label: "요청 실패", value: selectedLog.requestFailCount, color: "text-orange-700", bg: "bg-orange-50" },
-                    { label: "요청 중",   value: selectedLog.pendingCount,     color: "text-blue-700",   bg: "bg-blue-50"   },
+                    { label: "수행 성공", value: selectedLog.succeededCount,  color: "text-green-700",  bg: "bg-green-50"  },
+                    { label: "수행 실패", value: selectedLog.failedCount,      color: "text-red-700",    bg: "bg-red-50"    },
+                    { label: "응답 없음", value: selectedLog.timeoutCount,     color: "text-orange-700", bg: "bg-orange-50" },
+                    { label: "대기 중",   value: selectedLog.pendingCount,     color: "text-blue-700",   bg: "bg-blue-50"   },
+                    { label: "취소",      value: selectedLog.cancelledCount,   color: "text-slate-500",  bg: "bg-slate-50"  },
                   ].map(({ label, value, color, bg }) => (
                     <div key={label} className={`${bg} rounded-[8px] p-3 text-center`}>
                       <p className="text-[11px] text-[#64748b] mb-1">{label}</p>
@@ -1037,40 +1211,11 @@ export function RemoteControlPage() {
                   ))}
                 </div>
               </div>
-              <div>
-                <p className="text-[13px] font-semibold text-[#0f172a] mb-1">단말별 결과</p>
-                <p className="text-[11px] text-[#94a3b8] mb-2">단말을 클릭하면 상세 정보를 확인할 수 있습니다.</p>
-                <div className="border border-[#e2e7ef] rounded-[8px] overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-[#f8fafc]">
-                      <tr>
-                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#64748b]">단말 ID</th>
-                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#64748b]">정류장명</th>
-                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#64748b]">고객사</th>
-                        <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-[#64748b]">수행 상태</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#e2e7ef]">
-                      {selectedLog.deviceResults.map((r) => (
-                        <tr key={r.deviceId} className="hover:bg-[#f8fafc] cursor-pointer transition-colors" onClick={() => setSelectedDevice(r)}>
-                          <td className="px-4 py-3 text-[12px] text-[#0ea5e9] font-medium">{r.deviceId}</td>
-                          <td className="px-4 py-3">
-                            <p className="text-[12px] text-[#0f172a]">{r.stationName}</p>
-                            {r.execStatus === "수행 실패" && r.failReason && (
-                              <p className="text-[11px] text-[#ef4444] mt-0.5">{r.failReason}</p>
-                            )}
-                            {r.execStatus === "수행 실패" && r.deviceStateAtExec && (
-                              <p className="text-[11px] text-[#94a3b8] mt-0.5">실행 당시: {r.deviceStateAtExec}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-[12px] text-[#64748b]">{r.customerName}</td>
-                          <td className="px-4 py-3">{getExecStatusBadge(r.execStatus)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <DeviceResultAccordion
+                results={selectedLog.deviceResults}
+                commandType={selectedLog.command}
+                onOpenDetail={(r) => setSelectedDevice(r)}
+              />
             </div>
           </div>
           {selectedDevice && (
