@@ -307,11 +307,11 @@ export function MonitoringPage() {
               isChecked={statusFilters.has("위험")}
               onClick={() => handleStatusFilterClick("위험")}
             />
-            <StatusCard 
-              type="지연" 
-              count={statusCounts.지연} 
-              isChecked={statusFilters.has("지연")}
-              onClick={() => handleStatusFilterClick("지연")}
+            <StatusCard
+              type="저하"
+              count={statusCounts.저하}
+              isChecked={statusFilters.has("저하")}
+              onClick={() => handleStatusFilterClick("저하")}
             />
             <StatusCard 
               type="정상" 
