@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
@@ -27,13 +27,13 @@ export function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-[13px] font-medium text-[#0f172a] mb-1.5">
-                이메일
+                아이디
               </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@bims.kr"
+                type="text"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder="아이디를 입력하세요"
                 className="w-full h-10 border border-[#e2e7ef] rounded-lg px-3 text-[13px] focus:outline-none focus:border-[#0ea5e9] focus:ring-1 focus:ring-[#0ea5e9]"
               />
             </div>

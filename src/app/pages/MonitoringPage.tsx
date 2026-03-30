@@ -135,7 +135,9 @@ const mockDevices: Device[] = [
 
 export function MonitoringPage() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set());
+  const [statusFilters, setStatusFilters] = useState<Set<string>>(
+    new Set(["정상", "지연", "위험", "오프라인"])
+  );
   const [isAllSelected, setIsAllSelected] = useState(true);
   const [viewMode, setViewMode] = useState<"device" | "station" | "map">("device");
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
@@ -247,6 +249,17 @@ export function MonitoringPage() {
             </div>
             <div className="inline-flex rounded-lg border border-[#e2e7ef] bg-white p-1">
               <button
+                onClick={() => setViewMode("map")}
+                className={`p-2 rounded-md transition-colors flex items-center justify-center ${
+                  viewMode === "map"
+                    ? "bg-[#f0f9ff] text-[#0384c7] border-[1.5px] border-[#0ea5e9]"
+                    : "text-[#64748b]"
+                }`}
+                title="지도"
+              >
+                <Map className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => setViewMode("device")}
                 className={`p-2 rounded-md transition-colors flex items-center justify-center ${
                   viewMode === "device"
@@ -267,17 +280,6 @@ export function MonitoringPage() {
                 title="정류장"
               >
                 <MapPin className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("map")}
-                className={`p-2 rounded-md transition-colors flex items-center justify-center ${
-                  viewMode === "map"
-                    ? "bg-[#f0f9ff] text-[#0384c7] border-[1.5px] border-[#0ea5e9]"
-                    : "text-[#64748b]"
-                }`}
-                title="지도"
-              >
-                <Map className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -512,12 +514,13 @@ export function MonitoringPage() {
 }
 
 // ── 지도 뷰 ────────────────────────────────────────────────────────────
-const REGION_DATA = [
-  { region: "강남구", x: 3, y: 2 },
-  { region: "서초구", x: 2, y: 3 },
-  { region: "성남시", x: 4, y: 3 },
-  { region: "연수구", x: 0, y: 2 },
-  { region: "남동구", x: 0, y: 3 },
+// 더미 핀 위치: 실제 서울/경기 위치 비율 기반 (left%, top% of map container)
+const PIN_DATA = [
+  { region: "강남구",  left: 54, top: 46 },
+  { region: "서초구",  left: 49, top: 52 },
+  { region: "성남시",  left: 60, top: 58 },
+  { region: "연수구",  left: 18, top: 68 },
+  { region: "남동구",  left: 23, top: 62 },
 ];
 
 function MapView({
@@ -535,79 +538,157 @@ function MapView({
     return acc;
   }, {} as Record<string, Device[]>);
 
-  const regionStatus = (devices: Device[]) => {
-    if (devices.some((d) => d.status === "오프라인")) return "오프라인";
-    if (devices.some((d) => d.status === "위험")) return "위험";
-    if (devices.some((d) => d.status === "지연")) return "지연";
+  const regionStatus = (devs: Device[]) => {
+    if (devs.some((d) => d.status === "오프라인")) return "오프라인";
+    if (devs.some((d) => d.status === "위험")) return "위험";
+    if (devs.some((d) => d.status === "지연")) return "지연";
     return "정상";
   };
 
-  const statusColor = (s: string) => {
+  const pinColor = (s: string) => {
     switch (s) {
-      case "정상": return "bg-green-100 border-green-300 text-green-700";
-      case "지연": return "bg-yellow-100 border-yellow-300 text-yellow-700";
-      case "위험": return "bg-red-100 border-red-300 text-red-700";
-      default:    return "bg-gray-100 border-gray-300 text-gray-600";
-    }
-  };
-
-  const dotColor = (s: string) => {
-    switch (s) {
-      case "정상": return "bg-green-500";
-      case "지연": return "bg-yellow-500";
-      case "위험": return "bg-red-500";
-      default:    return "bg-gray-400";
+      case "정상":    return { bg: "#16a34a", ring: "#bbf7d0", text: "#fff" };
+      case "지연":    return { bg: "#d97706", ring: "#fde68a", text: "#fff" };
+      case "위험":    return { bg: "#dc2626", ring: "#fecaca", text: "#fff" };
+      default:        return { bg: "#6b7280", ring: "#e5e7eb", text: "#fff" };
     }
   };
 
   return (
-    <div className="flex gap-4">
-      {/* Map */}
-      <div className="flex-1 bg-white rounded-[10px] border border-[#e2e7ef] p-6 min-h-[440px] relative overflow-hidden">
-        {/* 배경 격자 */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: "linear-gradient(#0ea5e9 1px, transparent 1px), linear-gradient(90deg, #0ea5e9 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        />
-        <p className="text-[11px] text-[#64748b] font-semibold mb-4 relative">지역별 단말 현황</p>
+    <div className="flex gap-4 h-[520px]">
+      {/* 더미 지도 */}
+      <div className="flex-1 rounded-[10px] border border-[#e2e7ef] overflow-hidden relative">
 
-        {/* 지역 핀들 */}
-        <div className="relative grid grid-cols-6 gap-4 h-[360px] content-center">
-          {REGION_DATA.map(({ region, x, y }) => {
-            const regionDevices = byRegion[region] ?? [];
-            if (regionDevices.length === 0) return null;
-            const st = regionStatus(regionDevices);
-            const isActive = activeRegion === region;
-            return (
-              <button
-                key={region}
-                onClick={() => setActiveRegion(isActive ? null : region)}
-                style={{ gridColumn: x + 1, gridRow: y + 1 }}
-                className={`border-2 rounded-[10px] p-3 text-left transition-all hover:scale-105 ${statusColor(st)} ${
-                  isActive ? "ring-2 ring-[#0ea5e9] ring-offset-1" : ""
-                }`}
+        {/* 지도 배경 — 도로/블록 느낌의 더미 SVG */}
+        <svg
+          className="absolute inset-0 w-full h-full"
+          viewBox="0 0 800 520"
+          preserveAspectRatio="xMidYMid slice"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {/* 배경 */}
+          <rect width="800" height="520" fill="#e8eedc" />
+
+          {/* 녹지 블록들 */}
+          <rect x="30"  y="30"  width="110" height="80"  rx="4" fill="#c8dba0" />
+          <rect x="200" y="60"  width="80"  height="60"  rx="4" fill="#c8dba0" />
+          <rect x="450" y="20"  width="140" height="90"  rx="4" fill="#c8dba0" />
+          <rect x="650" y="80"  width="110" height="70"  rx="4" fill="#c8dba0" />
+          <rect x="60"  y="380" width="90"  height="100" rx="4" fill="#c8dba0" />
+          <rect x="350" y="400" width="120" height="90"  rx="4" fill="#c8dba0" />
+          <rect x="600" y="360" width="160" height="130" rx="4" fill="#c8dba0" />
+
+          {/* 강 */}
+          <path d="M0,220 Q200,200 400,230 Q600,260 800,240" stroke="#7ab8d4" strokeWidth="18" fill="none" opacity="0.7"/>
+          <path d="M0,222 Q200,202 400,232 Q600,262 800,242" stroke="#a8cfe0" strokeWidth="8" fill="none" opacity="0.5"/>
+
+          {/* 주요 도로 (두꺼운) */}
+          <line x1="0"   y1="160" x2="800" y2="160" stroke="#fff" strokeWidth="7" />
+          <line x1="0"   y1="320" x2="800" y2="320" stroke="#fff" strokeWidth="7" />
+          <line x1="160" y1="0"   x2="160" y2="520" stroke="#fff" strokeWidth="7" />
+          <line x1="400" y1="0"   x2="400" y2="520" stroke="#fff" strokeWidth="7" />
+          <line x1="620" y1="0"   x2="620" y2="520" stroke="#fff" strokeWidth="7" />
+          {/* 보조 도로 */}
+          <line x1="0"   y1="100" x2="800" y2="100" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          <line x1="0"   y1="260" x2="800" y2="260" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          <line x1="0"   y1="390" x2="800" y2="390" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          <line x1="80"  y1="0"   x2="80"  y2="520" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          <line x1="290" y1="0"   x2="290" y2="520" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          <line x1="510" y1="0"   x2="510" y2="520" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          <line x1="720" y1="0"   x2="720" y2="520" stroke="#fff" strokeWidth="3" opacity="0.7"/>
+          {/* 사선 도로 */}
+          <line x1="0"   y1="350" x2="200" y2="160" stroke="#fff" strokeWidth="4" opacity="0.6"/>
+          <line x1="400" y1="160" x2="620" y2="320" stroke="#fff" strokeWidth="4" opacity="0.6"/>
+          <line x1="510" y1="0"   x2="800" y2="200" stroke="#fff" strokeWidth="4" opacity="0.6"/>
+
+          {/* 블록(건물군) */}
+          {[
+            [20,  120, 50, 30], [90,  120, 55, 30], [185, 115, 90, 35],
+            [20,  175, 50, 70], [90,  175, 55, 70], [185, 175, 90, 70],
+            [420, 10,  70, 80], [420, 175, 70, 70], [420, 115, 70, 50],
+            [530, 175, 70, 70], [530, 115, 70, 50], [530, 10,  70, 80],
+            [640, 10,  70, 80], [640, 115, 70, 90], [640, 220, 70, 60],
+            [20,  340, 50, 40], [90,  340, 55, 40], [185, 335, 90, 45],
+            [20,  400, 50, 60], [90,  400, 55, 60], [185, 400, 90, 60],
+            [420, 340, 70, 40], [420, 400, 70, 80], [530, 340, 70, 40],
+            [640, 340, 70, 10], [295, 175, 90, 70], [295, 115, 90, 50],
+            [295, 340, 90, 40], [295, 400, 90, 80],
+          ].map(([x, y, w, h], i) => (
+            <rect key={i} x={x} y={y} width={w} height={h} rx="2" fill="#d4cfc5" opacity="0.8" />
+          ))}
+
+          {/* 도로 중심선 (노란 점선) */}
+          <line x1="0" y1="160" x2="800" y2="160" stroke="#f5c842" strokeWidth="1.5" strokeDasharray="12,8" opacity="0.5"/>
+          <line x1="0" y1="320" x2="800" y2="320" stroke="#f5c842" strokeWidth="1.5" strokeDasharray="12,8" opacity="0.5"/>
+          <line x1="400" y1="0" x2="400" y2="520" stroke="#f5c842" strokeWidth="1.5" strokeDasharray="12,8" opacity="0.5"/>
+        </svg>
+
+        {/* 핀들 */}
+        {PIN_DATA.map(({ region, left, top }) => {
+          const regionDevices = byRegion[region] ?? [];
+          if (regionDevices.length === 0) return null;
+          const st = regionStatus(regionDevices);
+          const c = pinColor(st);
+          const isActive = activeRegion === region;
+          return (
+            <button
+              key={region}
+              onClick={() => setActiveRegion(isActive ? null : region)}
+              style={{ left: `${left}%`, top: `${top}%` }}
+              className="absolute -translate-x-1/2 -translate-y-full group"
+            >
+              {/* 링 애니메이션 */}
+              <span
+                className="absolute inset-0 rounded-full animate-ping opacity-30"
+                style={{ backgroundColor: c.bg, top: "-6px", left: "-6px", right: "-6px", bottom: "-6px" }}
+              />
+              {/* 핀 버블 */}
+              <span
+                className={`relative flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-lg transition-transform ${isActive ? "scale-110" : "hover:scale-105"}`}
+                style={{ backgroundColor: c.bg, color: c.text, boxShadow: isActive ? `0 0 0 3px ${c.ring}` : undefined }}
               >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dotColor(st)}`} />
-                  <span className="text-[12px] font-semibold">{region}</span>
-                </div>
-                <span className="text-[11px]">{regionDevices.length}대</span>
-              </button>
-            );
-          })}
+                {region}
+                <span className="bg-white/30 rounded-full px-1">{regionDevices.length}</span>
+              </span>
+              {/* 핀 꼬리 */}
+              <span
+                className="block mx-auto w-0 h-0"
+                style={{
+                  borderLeft: "5px solid transparent",
+                  borderRight: "5px solid transparent",
+                  borderTop: `7px solid ${c.bg}`,
+                  marginTop: "-1px",
+                }}
+              />
+            </button>
+          );
+        })}
+
+        {/* 우상단 컨트롤 */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1">
+          <button className="w-8 h-8 bg-white rounded-md shadow text-[16px] font-bold text-[#374151] hover:bg-gray-50 flex items-center justify-center">+</button>
+          <button className="w-8 h-8 bg-white rounded-md shadow text-[16px] font-bold text-[#374151] hover:bg-gray-50 flex items-center justify-center">−</button>
+        </div>
+
+        {/* 좌하단 범례 */}
+        <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-[8px] px-3 py-2 shadow text-[11px] space-y-1">
+          {[["정상","#16a34a"],["지연","#d97706"],["위험","#dc2626"],["오프라인","#6b7280"]].map(([label, color]) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-[#374151]">{label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* 지역 상세 패널 */}
       {activeRegion && byRegion[activeRegion] && (
-        <div className="w-[320px] bg-white rounded-[10px] border border-[#e2e7ef] overflow-hidden flex-shrink-0">
+        <div className="w-[300px] bg-white rounded-[10px] border border-[#e2e7ef] overflow-hidden flex-shrink-0 flex flex-col">
           <div className="px-5 py-4 border-b border-[#e2e7ef] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-[#0ea5e9]" />
               <span className="text-[14px] font-semibold text-[#0f172a]">{activeRegion}</span>
+              <span className="text-[12px] text-[#64748b]">{byRegion[activeRegion].length}대</span>
             </div>
             <button
               onClick={() => setActiveRegion(null)}
@@ -616,7 +697,7 @@ function MapView({
               ×
             </button>
           </div>
-          <div className="divide-y divide-[#e2e7ef]">
+          <div className="divide-y divide-[#e2e7ef] overflow-y-auto flex-1">
             {byRegion[activeRegion].map((device) => (
               <button
                 key={device.id}
